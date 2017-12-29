@@ -1,4 +1,4 @@
-package zones
+package solaris_zones
 
 import (
 	"fmt"
@@ -16,19 +16,19 @@ var sampleConfig = `
                 "running", "shutting_down"]
 `
 
-type Zones struct {
+type SolarisZones struct {
 	ZoneStates []string
 }
 
-func (z *Zones) Description() string {
+func (z *SolarisZones) Description() string {
 	return "Reports on Solaris zones."
 }
 
-func (z *Zones) SampleConfig() string {
+func (z *SolarisZones) SampleConfig() string {
 	return sampleConfig
 }
 
-func (z *Zones) count_states(states string) map[string]int {
+func (z *SolarisZones) count_states(states string) map[string]int {
 	ret := make(map[string]int)
 
 	for _, s := range strings.Split(states, "\n") {
@@ -38,7 +38,7 @@ func (z *Zones) count_states(states string) map[string]int {
 	return ret
 }
 
-func (z *Zones) Gather(acc telegraf.Accumulator) error {
+func (z *SolarisZones) Gather(acc telegraf.Accumulator) error {
 	fields := make(map[string]interface{})
 	states := make(map[string]int)
 	brands := make(map[string]int)
@@ -68,5 +68,5 @@ func (z *Zones) Gather(acc telegraf.Accumulator) error {
 }
 
 func init() {
-	inputs.Add("zones", func() telegraf.Input { return &Zones{} })
+	inputs.Add("zones", func() telegraf.Input { return &SolarisZones{} })
 }

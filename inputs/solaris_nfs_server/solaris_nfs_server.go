@@ -19,7 +19,7 @@ var sampleConfig = `
 `
 
 func (s *SolarisNfsServer) Description() string {
-	return "Reports on Solaris NIC Usage"
+	return "Reports Solaris NFS server statistics"
 }
 
 func (s *SolarisNfsServer) SampleConfig() string {

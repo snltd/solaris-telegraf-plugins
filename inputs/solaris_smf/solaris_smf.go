@@ -1,4 +1,4 @@
-package smf_svc
+package solaris_smf
 
 import (
 	"fmt"
@@ -21,21 +21,21 @@ var sampleConfig = `
 	# Zones = ["zone1", "zone2"]
 `
 
-type SmfSvc struct {
+type SolarisSmf struct {
 	zone      string
 	SvcStates []string
 	Zones     []string
 }
 
-func (s *SmfSvc) Description() string {
+func (s *SolarisSmf) Description() string {
 	return "Reports the number of SMF services in each state"
 }
 
-func (s *SmfSvc) SampleConfig() string {
+func (s *SolarisSmf) SampleConfig() string {
 	return sampleConfig
 }
 
-func (s *SmfSvc) count_states(states string) map[string]int {
+func (s *SolarisSmf) count_states(states string) map[string]int {
 	ret := make(map[string]int)
 
 	for _, s := range strings.Split(states, "\n") {
@@ -45,7 +45,7 @@ func (s *SmfSvc) count_states(states string) map[string]int {
 	return ret
 }
 
-func (s *SmfSvc) Gather(acc telegraf.Accumulator) error {
+func (s *SolarisSmf) Gather(acc telegraf.Accumulator) error {
 	fields := make(map[string]interface{})
 	tags := make(map[string]string)
 
@@ -84,7 +84,7 @@ func (s *SmfSvc) Gather(acc telegraf.Accumulator) error {
 				}
 			}
 
-			acc.AddFields("smf_svc", fields, tags)
+			acc.AddFields("solaris_smf", fields, tags)
 		}
 
 	} else {
@@ -110,12 +110,12 @@ func (s *SmfSvc) Gather(acc telegraf.Accumulator) error {
 			}
 		}
 
-		acc.AddFields("smf_svc", fields, tags)
+		acc.AddFields("solaris_smf", fields, tags)
 	}
 
 	return nil
 }
 
 func init() {
-	inputs.Add("smf_svc", func() telegraf.Input { return &SmfSvc{} })
+	inputs.Add("solaris_smf", func() telegraf.Input { return &SolarisSmf{} })
 }
