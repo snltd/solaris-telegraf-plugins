@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
-	sh "github.com/snltd/sunos_helpers"
+	sh "github.com/snltd/sunos_telegraf_helpers"
 	"regexp"
 	"strings"
 )

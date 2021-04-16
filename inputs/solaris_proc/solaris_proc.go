@@ -16,7 +16,7 @@ import (
 	"github.com/fatih/structs"
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
-	sh "github.com/snltd/sunos_helpers"
+	sh "github.com/snltd/sunos_telegraf_helpers"
 	"io/ioutil"
 	"log"
 	"os"
