@@ -3,7 +3,7 @@ package solaris_zpool
 import (
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
-	sh "github.com/snltd/sunos_telegraf_helpers"
+	sh "github.com/snltd/solaris-telegraf-helpers"
 	"strconv"
 	"strings"
 )
