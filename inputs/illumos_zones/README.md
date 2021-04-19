@@ -7,69 +7,38 @@ Plugin minimum tested version: 1.18
 
 ### Configuration
 
-This section contains the default TOML to configure the plugin.  You can
-generate it using `telegraf --usage <illumos_zones>`.
+This plugin requires no configuration.
 
 ```toml
 [[inputs.example]]
-  example_option = "example_value"
 ```
-
-#### example_option
-
-A more in depth description of an option can be provided here, but only do so
-if the option cannot be fully described in the sample config.
 
 ### Metrics
 
-Here you should add an optional description and links to where the user can
-get more information about the measurements.
-
-If the output is determined dynamically based on the input source, or there
-are more metrics than can reasonably be listed, describe how the input is
-mapped to the output.
-
-- measurement1
+- zones
   - tags:
-    - tag1 (optional description)
-    - tag2
+    - name (the zone name)
+    - status (the zone status: `running`, `installed` etc.)
+    - brand (the zone brand: `ipkg`, `lx`, `pkgsrc` etc.)
+    - ipType (the zone's IP type: `excl`, `shared`)
   - fields:
-    - field1 (type, unit)
-    - field2 (float, percent)
-
-+ measurement2
-  - tags:
-    - tag3
-  - fields:
-    - field3 (integer, bytes)
-    - field4 (integer, green=1 yellow=2 red=3)
-    - field5 (string)
-    - field6 (float)
-    - field7 (boolean)
+    - status (int, `1` if the zone is running, `0` if it is not)
 
 ### Sample Queries
 
-This section can contain some useful InfluxDB queries that can be used to get
-started with the plugin or to generate dashboards.  For each query listed,
-describe at a high level what data is returned.
+The following queries are written in [The Wavefront Query
+Language](https://docs.wavefront.com/query_language_reference.html).
 
-Get the max, mean, and min for the measurement in the last hour:
 ```
-SELECT max(field1), mean(field1), min(field1) FROM measurement1 WHERE tag1=bar AND time > now() - 1h GROUP BY tag
+count(ts("dev.telegraf.zones.status"), status) # count the running/installed/etc zones
 ```
 
-### Troubleshooting
-
-This optional section can provide basic troubleshooting steps that a user can
-perform.
 
 ### Example Output
 
-This section shows example output in Line Protocol format.  You can often use
-`telegraf --input-filter <plugin-name> --test` or use the `file` output to get
-this information.
-
 ```
-measurement1,tag1=foo,tag2=bar field1=1i,field2=2.1 1453831884664956455
-measurement2,tag1=foo,tag2=bar,tag3=baz field3=1i 1453831884664956455
+zones,brand=pkgsrc,host=cube,ipType=excl,name=cube-dns,status=running status=1i 1618866586000000000
+zones,brand=lipkg,host=cube,ipType=excl,name=cube-pkg,status=running status=1i 1618866586000000000
+zones,brand=pkgsrc,host=cube,ipType=excl,name=cube-ws,status=running status=1i 1618866586000000000
+
 ```
