@@ -1,11 +1,15 @@
 # SmartOS and Solaris Telegraf Plugins
 
-A collection of Telegraf plugins to collect data on a SmartOS or
-Solaris system, from the global or local zone.
+A collection of Telegraf input plugins to collect data on a SmartOS or Solaris system, from the
+global or local zone.
 
-I don't know a lot of Go, and I needed to get these up and working
-quickly, so I chose to write everything "standalone", rather than by
-extending the official Telegraf plugins and their Go dependencies.
+## The Plugins
+
+## solaris_zones
+
+Reports the number of zones in all of the states a zone can be in. `installed`, `running`, and
+so-on.
+
 
 ## Building
 
