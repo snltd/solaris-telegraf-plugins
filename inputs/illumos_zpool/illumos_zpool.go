@@ -1,4 +1,4 @@
-package solaris_zpool
+package illumos_zpool
 
 import (
 	"github.com/influxdata/telegraf"
@@ -9,39 +9,62 @@ import (
 )
 
 var sampleConfig = `
-  ## The metrics you wish to report. They can be any of the headers
-	## in the output of 'zpool list', and 'health'.
+	## The metrics you wish to report. They can be any of the headers in the output of 'zpool
+	## list', and also a numeric interpretation of 'health'.
 	# Fields = ["size", "alloc", "free", "cap", "dedup", "health"]
-	## Whether to count the number of dataset objects in a pool. Can be
-	## any combination of 'filesystem', 'snapshot', and 'volume'.
-	## Collecting this information can take a very long time if you have
-	## large numbers of datasets. Put 'none' or something in there to
-	## not do counts
-	## Count = ["none"]
 `
 
-type SolarisZpool struct {
+type IllumosZpool struct {
 	Fields []string
 }
 
-func (s *SolarisZpool) Description() string {
-	return "Reports the health and status of ZFS pools"
+func (s *IllumosZpool) Description() string {
+	return "Reports the health and status of ZFS pools."
 }
 
-func (s *SolarisZpool) SampleConfig() string {
+func (s *IllumosZpool) SampleConfig() string {
 	return sampleConfig
 }
 
-// convert the health of a zpool to an integer, so you can alert off
-// it.
+var zpoolOutput = func() string {
+	return sh.RunCmd("/usr/sbin/zpool list")
+}
+
+func (s *IllumosZpool) Gather(acc telegraf.Accumulator) error {
+	raw := zpoolOutput()
+	lines := strings.Split(raw, "\n")
+	fields := make(map[string]interface{})
+
+	for _, pool := range lines[1:] {
+		poolStats := parseZpool(pool, lines[0])
+		tags := map[string]string{"name": poolStats.name}
+
+		for stat, val := range poolStats.props {
+			if sh.WeWant(stat, s.Fields) {
+				fields[stat] = val
+			}
+		}
+
+		acc.AddFields("zpool", fields, tags)
+	}
+
+	return nil
+}
+
+// parseHeader turns the first line of `zpool list`'s output into an array of lower-case strings
+func parseHeader(raw string) []string {
+	return strings.Fields(strings.ToLower(raw))
+}
+
+// healthtoi converts the health of a zpool to an integer, so you can alert off it.
 // 0 : ONLINE
 // 1 : DEGRADED
 // 2 : SUSPENDED
 // 3 : UNAVAIL
-// 4 : <cannot parse>
-//
+// 4 : FAULTED
+// 99: <cannot parse>
 func healthtoi(health string) int {
-	states := []string{"ONLINE", "DEGRADED", "SUSPENDED", "UNAVAIL"}
+	states := []string{"ONLINE", "DEGRADED", "SUSPENDED", "UNAVAIL", "FAULTED"}
 
 	for i, state := range states {
 		if state == health {
@@ -49,27 +72,29 @@ func healthtoi(health string) int {
 		}
 	}
 
-	return 4
+	return 99
 }
 
-// This has to be kind of vague, because the fields are different on
-// different OSses
-//
+// Zpool stores all the Zpool properties in the `props` map, which is dynamically generated. This
+// means it will work on Solaris as well as Illumos, and won't break if the output format of
+// `zpool(1m)` changes.
 type Zpool struct {
 	name  string
 	props map[string]interface{}
 }
 
-// Return a struct describing a Zpool
-//
-func zpoolObject(zpool_line string, header []string) Zpool {
-	fields := strings.Fields(zpool_line)
-	ret := Zpool{name: fields[0]}
+// parseZpool semi-intelligently parses a line of `zpool list` output, using that command's output
+// header to pick out the fields we are interested in.
+func parseZpool(raw, rawHeader string) Zpool {
+	fields := parseHeader(rawHeader)
+	chunks := strings.Fields(raw)
+	pool := Zpool{
+		name:  chunks[0],
+		props: make(map[string]interface{}),
+	}
 
-	props := make(map[string]interface{})
-
-	for i, field := range fields {
-		property := header[i]
+	for i, field := range chunks {
+		property := fields[i]
 
 		switch property {
 		case "size":
@@ -77,45 +102,22 @@ func zpoolObject(zpool_line string, header []string) Zpool {
 		case "alloc":
 			fallthrough
 		case "free":
-			props[property], _ = sh.Bytify(field)
+			pool.props[property], _ = sh.Bytify(field)
+		case "frag":
+			fallthrough
 		case "cap":
-			props["cap"], _ = strconv.Atoi(strings.TrimSuffix(field, "%"))
+			pool.props[property], _ = strconv.Atoi(strings.TrimSuffix(field, "%"))
 		case "dedup":
 			strval := strings.TrimSuffix(field, "x")
-			props["dedup"], _ = strconv.ParseFloat(strval, 64)
+			pool.props["dedup"], _ = strconv.ParseFloat(strval, 64)
 		case "health":
-			props["health"] = healthtoi(field)
-		default:
-			props[property] = field
+			pool.props["health"] = healthtoi(field)
 		}
 	}
 
-	ret.props = props
-	return ret
-}
-
-func (s *SolarisZpool) Gather(acc telegraf.Accumulator) error {
-	lines := strings.Split(sh.RunCmd("/usr/sbin/zpool list"), "\n")
-	header := strings.Fields(strings.ToLower(lines[0]))
-	fields := make(map[string]interface{})
-
-	for _, pool := range lines[1:] {
-		stats := zpoolObject(pool, header)
-		tags := map[string]string{"name": stats.name}
-
-		for stat, val := range stats.props {
-			if sh.WeWant(stat, s.Fields) {
-				fields[stat] = val
-			}
-
-		}
-
-		acc.AddFields("solaris_zpool", fields, tags)
-	}
-
-	return nil
+	return pool
 }
 
 func init() {
-	inputs.Add("solaris_zpool", func() telegraf.Input { return &SolarisZpool{} })
+	inputs.Add("illumos_zpool", func() telegraf.Input { return &IllumosZpool{} })
 }
