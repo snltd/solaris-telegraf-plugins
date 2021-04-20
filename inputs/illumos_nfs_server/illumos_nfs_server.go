@@ -13,8 +13,7 @@ import (
 var sampleConfig = `
 	## The NFS versions you wish to monitor.
 	#NfsVersions = ["v3", "v4"]
-	## The kstat fields you wish to emit. 'kstat -p -m nfs -i 0 | grep rfs' will list the
-	## possibilities
+	## The kstat fields you wish to emit. 'kstat -p -m nfs -i 0 | grep rfs' lists the possibilities
 	#Fields = ["read", "write", "remove", "create", "getattr", "setattr"]
 `
 
@@ -82,7 +81,5 @@ func (s *IllumosNfsServer) Gather(acc telegraf.Accumulator) error {
 }
 
 func init() {
-	inputs.Add("illumos_nfs_server", func() telegraf.Input {
-		return &IllumosNfsServer{}
-	})
+	inputs.Add("illumos_nfs_server", func() telegraf.Input { return &IllumosNfsServer{} })
 }
