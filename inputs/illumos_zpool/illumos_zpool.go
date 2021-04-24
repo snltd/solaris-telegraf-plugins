@@ -9,9 +9,9 @@ import (
 )
 
 var sampleConfig = `
-	## The metrics you wish to report. They can be any of the headers in the output of 'zpool
-	## list', and also a numeric interpretation of 'health'.
-	# Fields = ["size", "alloc", "free", "cap", "dedup", "health"]
+	## The metrics you wish to report. They can be any of the headers in the output of 'zpool list',
+	## and also a numeric interpretation of 'health'.
+	# fields = ["size", "alloc", "free", "cap", "dedup", "health"]
 `
 
 type IllumosZpool struct {
