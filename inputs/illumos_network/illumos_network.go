@@ -38,21 +38,21 @@ var makeZoneVnicMap = func() sth.ZoneVnicMap {
 
 var zoneName = ""
 
-func init() {
-	zoneName = sth.ZoneName()
-}
-
-func (s *IllumosNetwork) Gather(acc telegraf.Accumulator) error {
-	// To tag a VNIC with the zone that uses it, we need information from dladm(1m). I do this on
-	// every run so we catch new zones coming or old ones going.
-	vnicMap := makeZoneVnicMap()
+var kstatData = func() (*kstat.Token, []*kstat.KStat) {
 	token, err := kstat.Open()
 
 	if err != nil {
 		log.Fatal("cannot get kstat token")
 	}
 
-	mods := sth.KstatModule(token, "link")
+	return token, sth.KstatModule(token, "link")
+}
+
+func (s *IllumosNetwork) Gather(acc telegraf.Accumulator) error {
+	// To tag a VNIC with the zone that uses it, we need information from dladm(1m). I do this on
+	// every run so we catch new zones coming or old ones going.
+	vnicMap := makeZoneVnicMap()
+	token, mods := kstatData()
 
 	for _, mod := range mods {
 		stats, _ := mod.AllNamed()
@@ -106,5 +106,6 @@ func (s *IllumosNetwork) Gather(acc telegraf.Accumulator) error {
 }
 
 func init() {
+	zoneName = sth.ZoneName()
 	inputs.Add("illumos_network", func() telegraf.Input { return &IllumosNetwork{} })
 }
