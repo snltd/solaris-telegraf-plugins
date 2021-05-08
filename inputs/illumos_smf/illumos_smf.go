@@ -4,6 +4,7 @@ import (
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	sth "github.com/snltd/solaris-telegraf-helpers"
+	"log"
 	"strings"
 )
 
@@ -97,6 +98,12 @@ func parseSvcs(s IllumosSmf, raw string) svcSummary {
 
 	for _, svcLine := range strings.Split(raw, "\n") {
 		chunks := strings.Fields(svcLine)
+
+		if len(chunks) != 3 {
+			log.Printf("could not parse svc '%s', svcline")
+			continue
+		}
+
 		zone, state, fmri := chunks[0], chunks[1], chunks[2]
 
 		if !sth.WeWant(zone, s.Zones) || !sth.WeWant(state, s.SvcStates) {
