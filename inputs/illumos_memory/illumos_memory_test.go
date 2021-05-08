@@ -10,11 +10,6 @@ import (
 	//"time"
 )
 
-func TestSystemPageSize(t *testing.T) {
-	runPagesizeCmd = func() string { return "4096" }
-	assert.Equal(t, uint64(4096), systemPageSize())
-}
-
 func TestParseSwap(t *testing.T) {
 	s := &IllumosMemory{}
 

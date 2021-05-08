@@ -7,8 +7,8 @@ import (
 	"github.com/siebenmann/go-kstat"
 	sth "github.com/snltd/solaris-telegraf-helpers"
 	"log"
+	"os"
 	"regexp"
-	"strconv"
 )
 
 var sampleConfig = `
@@ -47,20 +47,6 @@ var pageSize int
 
 var runSwapCmd = func() string {
 	return sth.RunCmd("/usr/sbin/swap -s")
-}
-
-var runPagesizeCmd = func() string {
-	return sth.RunCmd("/bin/pagesize")
-}
-
-func systemPageSize() int {
-	pageSize, err := strconv.Atoi(runPagesizeCmd())
-
-	if err != nil {
-		log.Fatal("Cannot get page size")
-	}
-
-	return pageSize
 }
 
 func (s *IllumosMemory) Gather(acc telegraf.Accumulator) error {
@@ -209,6 +195,6 @@ func parseSwap(s *IllumosMemory) map[string]interface{} {
 }
 
 func init() {
-	pageSize = systemPageSize()
+	pageSize = os.Getpagesize()
 	inputs.Add("illumos_memory", func() telegraf.Input { return &IllumosMemory{} })
 }
