@@ -100,7 +100,7 @@ func parseSvcs(s IllumosSmf, raw string) svcSummary {
 		chunks := strings.Fields(svcLine)
 
 		if len(chunks) != 3 {
-			log.Printf("could not parse svc '%s', svcline")
+			log.Printf("could not parse svc '%s'", svcLine)
 			continue
 		}
 

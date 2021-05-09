@@ -5,7 +5,7 @@ import (
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	"github.com/siebenmann/go-kstat"
-	sh "github.com/snltd/solaris-telegraf-helpers"
+	sth "github.com/snltd/solaris-telegraf-helpers"
 	"log"
 	"strings"
 )
@@ -13,7 +13,8 @@ import (
 var sampleConfig = `
 	## The NFS versions you wish to monitor
 	# nfs_versions = ["v3", "v4"]
-  ## The kstat fields you wish to emit. 'kstat -p -m nfs -i 0 | grep rfs' lists the possibilities
+  ## The kstat fields you wish to emit. 'kstat -p -m nfs -i 0 | grep rfsreqcnt' lists the
+	## possibilities
 	# fields = ["read", "write", "remove", "create", "getattr", "setattr"]
 `
 
@@ -37,47 +38,46 @@ func (s *IllumosNfsClient) Gather(acc telegraf.Accumulator) error {
 		log.Fatal("cannot get kstat token")
 	}
 
-	ks := sh.KstatModule(token, "nfs")
+	stats := sth.KStatsInModule(token, "nfs")
 
-	for _, stat := range ks {
+	for _, stat := range stats {
 		if !strings.HasPrefix(stat.Name, "rfsreqcnt_v") {
 			continue
 		}
 
 		nfsVersion := fmt.Sprintf("v%s", stat.Name[len(stat.Name)-1:])
 
-		if !sh.WeWant(nfsVersion, s.NfsVersions) {
+		if !sth.WeWant(nfsVersion, s.NfsVersions) {
 			continue
 		}
 
 		stats, err := stat.AllNamed()
 
 		if err != nil {
-			log.Fatal("cannot get named NFS kstats")
+			log.Fatal("cannot get named NFS client kstats")
 		}
 
-		fields := make(map[string]interface{})
-
-		for _, stat := range stats {
-			if !sh.WeWant(stat.Name, s.Fields) {
-				continue
-			}
-
-			// cannot type switch on non-interface value stat (type *kstat.Named), hence this hack
-			valueType := fmt.Sprintf("%s", stat.Type)
-
-			if strings.HasPrefix(valueType, "uint") {
-				fields[stat.Name] = stat.UintVal
-			} else if strings.HasPrefix(valueType, "int") {
-				fields[stat.Name] = stat.IntVal
-			}
-		}
-
-		acc.AddFields("nfs.client", fields, map[string]string{"nfsVersion": nfsVersion})
+		acc.AddFields(
+			"nfs.client",
+			parseNamedStats(s, stats),
+			map[string]string{"nfsVersion": nfsVersion},
+		)
 	}
 
 	token.Close()
 	return nil
+}
+
+func parseNamedStats(s *IllumosNfsClient, stats []*kstat.Named) map[string]interface{} {
+	fields := make(map[string]interface{})
+
+	for _, stat := range stats {
+		if sth.WeWant(stat.Name, s.Fields) {
+			fields[stat.Name] = sth.NamedValue(stat).(float64)
+		}
+	}
+
+	return fields
 }
 
 func init() {

@@ -1,12 +1,16 @@
 # Illumos NFS Client Input Plugin
 
 Gathers kstat metrics relating to an Illumos system's NFS client traffic. It
-works with any NFS server version.
+works with any supported NFS protocol version.
 
 The kstat values are reported "raw": that is `crtime` and `snaptime` are not
 used to calculate differentials. Your graphing software should calculate
 rates, but they will not be as accurate as if they were calculated from the
 high-resolution kstat times.
+
+Each zone keeps its own NFS kstats. There's no (simple) way for the global
+zone to see the NFS kstats of an NGZ, so if you care about those, you'll have
+to run a dedicated Telegraf in the zone(s).
 
 Telegraf minimum version: Telegraf 1.18
 Plugin minimum tested version: 1.18
@@ -24,7 +28,7 @@ Omitting `Fields` entirely results in all metrics being sent.
 
 ### Metrics
 
-- zpool
+- nfs.client
   - tags:
     - nfsVersion (NFS protocol major version, e.g. "v4")
   - fields:

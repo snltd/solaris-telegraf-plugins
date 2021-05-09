@@ -62,7 +62,7 @@ func cpuinfoTags(stat *kstat.KStat) map[string]string {
 }
 
 func gatherCpuinfoStats(acc telegraf.Accumulator, token *kstat.Token) {
-	stats := sth.KstatModule(token, "cpu_info")
+	stats := sth.KStatsInModule(token, "cpu_info")
 
 	for _, stat := range stats {
 		currentHz, err := stat.GetNamed("current_clock_Hz")
@@ -78,7 +78,7 @@ func gatherCpuinfoStats(acc telegraf.Accumulator, token *kstat.Token) {
 }
 
 func gatherCpuStats(s *IllumosCpu, acc telegraf.Accumulator, token *kstat.Token) {
-	cpuStats := sth.KstatModule(token, "cpu")
+	cpuStats := sth.KStatsInModule(token, "cpu")
 
 	for _, statGroup := range cpuStats {
 		if statGroup.Name != "sys" {

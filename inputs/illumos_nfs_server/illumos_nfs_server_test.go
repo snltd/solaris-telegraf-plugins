@@ -1,59 +1,51 @@
 package illumos_nfs_server
 
 import (
-	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/testutil"
+	sth "github.com/snltd/solaris-telegraf-helpers"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
-	"time"
 )
 
-// This test is sketchy. It needs to run on a system with kstats, and worse than that, it needs to
-// run on a system which hasn't served and NFS content. I imagine it's possible to mock the kstat
-// calls, but it's something I don't have the energy for at the moment.
+// The meat of the plugin is tested by TestParseNamedStats. This exercises the full code path,
+// hittng real kstats
 func TestPlugin(t *testing.T) {
 	s := &IllumosNfsServer{
 		Fields:      []string{"read", "write", "remove", "create"},
-		NfsVersions: []string{"v3", "v4"},
+		NfsVersions: []string{"v4"},
 	}
 
 	acc := testutil.Accumulator{}
 	require.NoError(t, s.Gather(&acc))
+	metric := acc.GetTelegrafMetrics()[0]
 
-	testutil.RequireMetricsEqual(
-		t,
-		testMetrics,
-		acc.GetTelegrafMetrics(),
-		testutil.SortMetrics(),
-		testutil.IgnoreTime(),
-	)
+	assert.Equal(t, "nfs.server", metric.Name())
+	assert.True(t, metric.HasTag("nfsVersion"))
+
+	for _, field := range s.Fields {
+		_, present := metric.GetField(field)
+		assert.True(t, present)
+	}
 }
 
-var testMetrics = []telegraf.Metric{
-	testutil.MustMetric(
-		"nfs.server",
-		map[string]string{
-			"nfsVersion": "v3",
-		},
+func TestParseNamedStats(t *testing.T) {
+	s := &IllumosNfsServer{
+		Fields:      []string{"read", "write", "remove", "create"},
+		NfsVersions: []string{"v4"},
+	}
+
+	testData := sth.FromFixture("nfs:0:rfsproccnt_v4.kstat")
+	fields := parseNamedStats(s, testData)
+
+	assert.Equal(
+		t,
+		fields,
 		map[string]interface{}{
-			"create": uint64(0),
-			"write":  uint64(0),
-			"remove": uint64(0),
-			"read":   uint64(0),
+			"read":   float64(902),
+			"write":  float64(1310),
+			"remove": float64(94),
+			"create": float64(6),
 		},
-		time.Now(),
-	),
-	testutil.MustMetric(
-		"nfs.server",
-		map[string]string{
-			"nfsVersion": "v4",
-		},
-		map[string]interface{}{
-			"create": uint64(0),
-			"write":  uint64(0),
-			"remove": uint64(0),
-			"read":   uint64(0),
-		},
-		time.Now(),
-	),
+	)
 }
