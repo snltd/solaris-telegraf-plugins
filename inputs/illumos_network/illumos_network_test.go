@@ -1,68 +1,97 @@
 package illumos_network
 
 import (
-	"encoding/gob"
-	"fmt"
-	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/testutil"
-	"github.com/siebenmann/go-kstat"
+	sth "github.com/snltd/solaris-telegraf-helpers"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"os"
 	"testing"
-	"time"
 )
 
-func TestPlugin(t *testing.T) {
-	kstatData = sampleKstatData
-
+func TestParseNamedStats(t *testing.T) {
 	s := &IllumosNetwork{
-		Fields: []string{"obytes64", "rbytes64"},
+		Fields: []string{"obytes64", "rbytes64", "ipackets64"},
+		Zones:  []string{"cube-dns"},
+	}
+
+	testData := sth.FromFixture("link:0:dns_net0.kstat")
+	fields := parseNamedStats(s, testData)
+
+	assert.Equal(
+		t,
+		map[string]interface{}{
+			"obytes64":   float64(69053870),
+			"rbytes64":   float64(1518773044),
+			"ipackets64": float64(1637072),
+		},
+		fields,
+	)
+}
+
+func TestParseNamedStatsNoSelectedNics(t *testing.T) {
+	s := &IllumosNetwork{
+		Fields: []string{"obytes64", "rbytes64", "ipackets64"},
+		Zones:  []string{"cube-dns"},
+		Vnics:  []string{"net0"},
+	}
+
+	testData := sth.FromFixture("link:0:dns_net0.kstat")
+	fields := parseNamedStats(s, testData)
+	assert.Equal(t, map[string]interface{}{}, fields)
+}
+
+func TestZoneTags(t *testing.T) {
+	zoneName = "global"
+
+	assert.Equal(
+		t,
+		map[string]string{
+			"zone":  "cube-dns",
+			"link":  "rge0",
+			"speed": "1000mbit",
+			"name":  "dns_net0",
+		},
+		zoneTags("cube-dns", "dns_net0", sth.ParseZoneVnics(sampleDladmOutput)["dns_net0"]),
+	)
+}
+
+func TestZoneTagsGlobal(t *testing.T) {
+	zoneName = "global"
+
+	assert.Equal(
+		t,
+		map[string]string{
+			"zone":  "global",
+			"link":  "none",
+			"speed": "unknown",
+			"name":  "rge0",
+		},
+		zoneTags("global", "rge0", sth.ParseZoneVnics(sampleDladmOutput)["rge0"]),
+	)
+}
+
+func TestPlugin(t *testing.T) {
+	s := &IllumosNetwork{
+		Fields: []string{"obytes64", "rbytes64", "collisions", "ierrors"},
 	}
 
 	acc := testutil.Accumulator{}
 	require.NoError(t, s.Gather(&acc))
 
-	testutil.RequireMetricsEqual(
-		t,
-		testMetrics,
-		acc.GetTelegrafMetrics(),
-		testutil.SortMetrics(),
-		testutil.IgnoreTime(),
-	)
-}
+	metric := acc.GetTelegrafMetrics()[0]
+	assert.Equal(t, "net", metric.Name())
+	assert.True(t, metric.HasTag("zone"))
+	assert.True(t, metric.HasTag("link"))
+	assert.True(t, metric.HasTag("speed"))
+	assert.True(t, metric.HasTag("name"))
 
-var testMetrics = []telegraf.Metric{
-	testutil.MustMetric(
-		"net",
-		map[string]string{
-			"zone": "global",
-		},
-		map[string]interface{}{
-			"rbytes64": uint64(22),
-			"obytes64": uint64(10),
-		},
-		time.Now(),
-	),
-}
-
-func sampleKstatData() (*kstat.Token, []*kstat.KStat) {
-	var kstatData []*kstat.KStat
-	var dummyToken *kstat.Token
-
-	raw, err := os.Open("resources/kstat_data")
-
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not load serialized data from disk: %v\n", err)
-		os.Exit(1)
+	for _, field := range s.Fields {
+		_, present := metric.GetField(field)
+		assert.True(t, present)
 	}
-
-	dec := gob.NewDecoder(raw)
-	err = dec.Decode(&kstatData)
-
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not load decode kstat data: %v\n", err)
-		os.Exit(1)
-	}
-
-	return dummyToken, kstatData
 }
+
+var sampleDladmOutput = `media_net0:cube-media:rge0:1000
+dns_net0:cube-dns:rge0:1000
+pkgsrc_net0:cube-pkgsrc:rge0:1000
+backup_net0:cube-backup:rge0:1000`
