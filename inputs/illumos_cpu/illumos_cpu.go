@@ -8,12 +8,13 @@ Wavefront, which is plenty good enough for me.
 
 import (
 	"fmt"
+	"log"
+	"strings"
+
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	"github.com/siebenmann/go-kstat"
 	sth "github.com/snltd/solaris-telegraf-helpers"
-	"log"
-	"strings"
 )
 
 var sampleConfig = `

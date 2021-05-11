@@ -1,14 +1,17 @@
 package illumos_network
 
 import (
+	"testing"
+
 	"github.com/influxdata/telegraf/testutil"
 	sth "github.com/snltd/solaris-telegraf-helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestParseNamedStats(t *testing.T) {
+	t.Parallel()
+
 	s := &IllumosNetwork{
 		Fields: []string{"obytes64", "rbytes64", "ipackets64"},
 		Zones:  []string{"cube-dns"},
@@ -29,6 +32,8 @@ func TestParseNamedStats(t *testing.T) {
 }
 
 func TestParseNamedStatsNoSelectedNics(t *testing.T) {
+	t.Parallel()
+
 	s := &IllumosNetwork{
 		Fields: []string{"obytes64", "rbytes64", "ipackets64"},
 		Zones:  []string{"cube-dns"},
@@ -41,6 +46,8 @@ func TestParseNamedStatsNoSelectedNics(t *testing.T) {
 }
 
 func TestZoneTags(t *testing.T) {
+	t.Parallel()
+
 	zoneName = "global"
 
 	assert.Equal(
@@ -56,6 +63,8 @@ func TestZoneTags(t *testing.T) {
 }
 
 func TestZoneTagsGlobal(t *testing.T) {
+	t.Parallel()
+
 	zoneName = "global"
 
 	assert.Equal(
@@ -71,6 +80,8 @@ func TestZoneTagsGlobal(t *testing.T) {
 }
 
 func TestPlugin(t *testing.T) {
+	t.Parallel()
+
 	s := &IllumosNetwork{
 		Fields: []string{"obytes64", "rbytes64", "collisions", "ierrors"},
 	}

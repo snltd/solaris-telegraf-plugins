@@ -10,29 +10,29 @@ func (z *IllumosZones) Description() string {
 	return "Report on zone states, brands, and other properties."
 }
 
-var sampleConfig = ""
+var (
+	sampleConfig = ""
+	makeZoneMap  = sth.NewZoneMap
+)
 
 type IllumosZones struct{}
 
-var makeZoneMap = func() sth.ZoneMap {
-	return sth.NewZoneMap()
-}
-
 func (z *IllumosZones) Gather(acc telegraf.Accumulator) error {
-	gatherProperties(z, acc, makeZoneMap())
+	gatherProperties(acc, makeZoneMap())
+
 	return nil
 }
 
 func running(state string) int {
 	if state == "running" {
 		return 1
-	} else {
-		return 0
 	}
+
+	return 0
 }
 
 // Create an "I am here" metric for each zone. Value is 1 if the zone is running, 0 if it's not.
-func gatherProperties(z *IllumosZones, acc telegraf.Accumulator, zonemap sth.ZoneMap) {
+func gatherProperties(acc telegraf.Accumulator, zonemap sth.ZoneMap) {
 	for zone, zoneData := range zonemap {
 		acc.AddFields(
 			"zones",

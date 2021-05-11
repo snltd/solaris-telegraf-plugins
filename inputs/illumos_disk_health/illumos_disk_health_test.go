@@ -1,13 +1,15 @@
 package illumos_disk_health
 
 import (
+	"testing"
+
 	"github.com/influxdata/telegraf/testutil"
 	sth "github.com/snltd/solaris-telegraf-helpers"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestCamelCase(t *testing.T) {
+	t.Parallel()
 	require.Equal(t, "softErrors", camelCase("Soft Errors"))
 	require.Equal(t, "softErrors", camelCase("soft Errors"))
 	require.Equal(t, "word", camelCase("word"))
@@ -15,6 +17,8 @@ func TestCamelCase(t *testing.T) {
 }
 
 func TestParseNamedStats(t *testing.T) {
+	t.Parallel()
+
 	s := &IllumosDiskHealth{
 		Devices: []string{"sd6"},
 		Fields:  []string{"Hard Errors", "Soft Errors", "Transport Errors", "Illegal Request"},
@@ -48,6 +52,8 @@ func TestParseNamedStats(t *testing.T) {
 }
 
 func TestPlugin(t *testing.T) {
+	t.Parallel()
+
 	s := &IllumosDiskHealth{
 		Devices: []string{"sd0"},
 		Fields:  []string{"Hard Errors", "Transport Errors", "Illegal Request"},

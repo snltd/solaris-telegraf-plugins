@@ -1,11 +1,12 @@
 package illumos_smf
 
 import (
+	"log"
+	"strings"
+
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	sth "github.com/snltd/solaris-telegraf-helpers"
-	"log"
-	"strings"
 )
 
 var sampleConfig = `
@@ -99,8 +100,9 @@ func parseSvcs(s IllumosSmf, raw string) svcSummary {
 	for _, svcLine := range strings.Split(raw, "\n") {
 		chunks := strings.Fields(svcLine)
 
-		if len(chunks) != 3 {
+		if len(chunks) != 3 { //nolint
 			log.Printf("could not parse svc '%s'", svcLine)
+
 			continue
 		}
 
@@ -122,7 +124,7 @@ func parseSvcs(s IllumosSmf, raw string) svcSummary {
 			ret.counts[zone][state] = 0
 		}
 
-		ret.counts[zone][state] += 1
+		ret.counts[zone][state]++
 
 		if s.GenerateDetails && state != "online" {
 			ret.svcErrs = append(ret.svcErrs, svcErr{zone, state, fmri})

@@ -3,6 +3,7 @@ package illumos_proc
 import (
 	//"encoding/binary"
 	"fmt"
+
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	//sh "github.com/snltd/solaris-telegraf-helpers"

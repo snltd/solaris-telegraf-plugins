@@ -1,11 +1,12 @@
 package illumos_zpool
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	sh "github.com/snltd/solaris-telegraf-helpers"
-	"strconv"
-	"strings"
 )
 
 var sampleConfig = `
@@ -51,7 +52,7 @@ func (s *IllumosZpool) Gather(acc telegraf.Accumulator) error {
 	return nil
 }
 
-// parseHeader turns the first line of `zpool list`'s output into an array of lower-case strings
+// parseHeader turns the first line of `zpool list`'s output into an array of lower-case strings.
 func parseHeader(raw string) []string {
 	return strings.Fields(strings.ToLower(raw))
 }
@@ -72,7 +73,7 @@ func healthtoi(health string) int {
 		}
 	}
 
-	return 99
+	return 99 //nolint
 }
 
 // Zpool stores all the Zpool properties in the `props` map, which is dynamically generated. This

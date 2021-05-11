@@ -2,13 +2,14 @@ package illumos_memory
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"regexp"
+
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	"github.com/siebenmann/go-kstat"
 	sth "github.com/snltd/solaris-telegraf-helpers"
-	"log"
-	"os"
-	"regexp"
 )
 
 var sampleConfig = `
@@ -59,7 +60,6 @@ func (s *IllumosMemory) Gather(acc telegraf.Accumulator) error {
 	}
 
 	token, err := kstat.Open()
-
 	if err != nil {
 		return err
 	}
@@ -77,6 +77,7 @@ func (s *IllumosMemory) Gather(acc telegraf.Accumulator) error {
 	}
 
 	token.Close()
+
 	return nil
 }
 
@@ -122,7 +123,6 @@ func vminfoKStats(s *IllumosMemory, token *kstat.Token) map[string]interface{} {
 	fields := make(map[string]interface{})
 
 	_, vi, err := token.Vminfo()
-
 	if err != nil {
 		log.Fatal("cannot get vminfo kstats")
 	}
@@ -150,7 +150,7 @@ func vminfoKStats(s *IllumosMemory, token *kstat.Token) map[string]interface{} {
 	return fields
 }
 
-// The only named stats we need to parse in this collector are the ones from cpuvmKStats()
+// The only named stats we need to parse in this collector are the ones from cpuvmKStats().
 func parseNamedStats(s *IllumosMemory, stats []*kstat.Named) map[string]interface{} {
 	fields := make(map[string]interface{})
 
@@ -166,7 +166,7 @@ func parseNamedStats(s *IllumosMemory, stats []*kstat.Named) map[string]interfac
 type cpuvmStatHolder map[int]map[string]interface{}
 
 func perCpuvmKStats(s *IllumosMemory, token *kstat.Token) cpuvmStatHolder {
-	perCpuStats := make(cpuvmStatHolder)
+	perCPUStats := make(cpuvmStatHolder)
 	modStats := sth.KStatsInModule(token, "cpu")
 
 	for _, statGroup := range modStats {
@@ -175,15 +175,14 @@ func perCpuvmKStats(s *IllumosMemory, token *kstat.Token) cpuvmStatHolder {
 		}
 
 		stats, err := statGroup.AllNamed()
-
 		if err != nil {
 			log.Fatal("cannot get named cpu.vm kstats")
 		}
 
-		perCpuStats[statGroup.Instance] = parseNamedStats(s, stats)
+		perCPUStats[statGroup.Instance] = parseNamedStats(s, stats)
 	}
 
-	return perCpuStats
+	return perCPUStats
 }
 
 func individualCpuvmKStats(stats cpuvmStatHolder) map[string]interface{} {
@@ -275,5 +274,6 @@ func parseSwap(s *IllumosMemory) map[string]interface{} {
 
 func init() {
 	pageSize = float64(os.Getpagesize())
+
 	inputs.Add("illumos_memory", func() telegraf.Input { return &IllumosMemory{} })
 }

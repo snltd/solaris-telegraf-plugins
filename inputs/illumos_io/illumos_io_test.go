@@ -1,11 +1,12 @@
 package illumos_io
 
 import (
+	"testing"
+	"time"
+
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/testutil"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 // This test is sketchy. It needs to run on a system with kstats, and worse than that, it needs to

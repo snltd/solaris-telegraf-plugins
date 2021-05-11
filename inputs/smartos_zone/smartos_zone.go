@@ -2,11 +2,13 @@ package smartos_zone
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	"github.com/siebenmann/go-kstat"
 	sh "github.com/snltd/solaris-telegraf-helpers"
-	"log"
+
 	//"strconv"
 	"strings"
 )

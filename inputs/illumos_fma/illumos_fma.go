@@ -1,11 +1,12 @@
 package illumos_fma
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	sh "github.com/snltd/solaris-telegraf-helpers"
-	"strconv"
-	"strings"
 )
 
 var sampleConfig = `
@@ -49,7 +50,7 @@ var runFmadmFaultyCmd = func() string {
 }
 
 func gatherFmstat(s *IllumosFma, acc telegraf.Accumulator) {
-	raw := strings.Split(runFmstatCmd(), "\n")
+	raw := strings.Split(strings.TrimSpace(runFmstatCmd()), "\n")
 	header := parseFmstatHeader(raw[0])
 
 	for _, statLine := range raw[1:] {
@@ -70,12 +71,12 @@ func gatherFmstat(s *IllumosFma, acc telegraf.Accumulator) {
 	}
 }
 
-func gatherFmadm(s *IllumosFma, acc telegraf.Accumulator) {
+func gatherFmadm(acc telegraf.Accumulator) {
 	fields := make(map[string]interface{})
 	fmadmCounts := make(map[string]int)
 
 	for _, impact := range fmadmImpacts() {
-		safeName := strings.Replace(impact, ".", "_", -1)
+		safeName := strings.ReplaceAll(impact, ".", "_")
 		fmadmCounts[safeName]++
 	}
 
@@ -92,7 +93,7 @@ func (s *IllumosFma) Gather(acc telegraf.Accumulator) error {
 	}
 
 	if s.Fmadm {
-		gatherFmadm(s, acc)
+		gatherFmadm(acc)
 	}
 
 	return nil

@@ -1,16 +1,19 @@
 package illumos_nfs_client
 
 import (
+	"testing"
+
 	"github.com/influxdata/telegraf/testutil"
 	sth "github.com/snltd/solaris-telegraf-helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 // The meat of the plugin is tested by TestParseNamedStats. This exercises the full code path,
-// hittng real kstats
+// hittng real kstats.
 func TestPlugin(t *testing.T) {
+	t.Parallel()
+
 	s := &IllumosNfsClient{
 		Fields:      []string{"read", "write", "remove", "create"},
 		NfsVersions: []string{"v4"},
@@ -30,6 +33,8 @@ func TestPlugin(t *testing.T) {
 }
 
 func TestParseNamedStats(t *testing.T) {
+	t.Parallel()
+
 	s := &IllumosNfsClient{
 		Fields:      []string{"read", "write", "remove", "create"},
 		NfsVersions: []string{"v4"},

@@ -1,15 +1,18 @@
 package illumos_zones
 
 import (
+	"testing"
+	"time"
+
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/testutil"
 	sth "github.com/snltd/solaris-telegraf-helpers"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 func TestPlugin(t *testing.T) {
+	t.Parallel()
+
 	s := &IllumosZones{}
 
 	makeZoneMap = func() sth.ZoneMap {

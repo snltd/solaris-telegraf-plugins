@@ -1,16 +1,18 @@
 package illumos_zpool
 
 import (
+	"testing"
+	"time"
+
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"testing"
-	"time"
 )
 
 func TestHealthtoi(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(t, 0, healthtoi("ONLINE"))
 	assert.Equal(t, 1, healthtoi("DEGRADED"))
 	assert.Equal(t, 2, healthtoi("SUSPENDED"))
@@ -19,6 +21,8 @@ func TestHealthtoi(t *testing.T) {
 }
 
 func TestParseZpool(t *testing.T) {
+	t.Parallel()
+
 	line := "big    3.62T  2.69T   959G        -         -     2%    74%  1.00x  ONLINE  -"
 
 	assert.Equal(
@@ -40,14 +44,20 @@ func TestParseZpool(t *testing.T) {
 }
 
 func TestParseHeader(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(
 		t,
-		[]string{"name", "size", "alloc", "free", "ckpoint", "expandsz", "frag", "cap", "dedup",
-			"health", "altroot"},
+		[]string{
+			"name", "size", "alloc", "free", "ckpoint", "expandsz", "frag", "cap", "dedup",
+			"health", "altroot",
+		},
 		parseHeader(header))
 }
 
 func TestPluginAllMetrics(t *testing.T) {
+	t.Parallel()
+
 	s := &IllumosZpool{}
 
 	zpoolOutput = func() string {
@@ -117,6 +127,8 @@ var testMetricsFull = []telegraf.Metric{
 }
 
 func TestPluginSelectedMetrics(t *testing.T) {
+	t.Parallel()
+
 	s := &IllumosZpool{
 		Fields: []string{"cap", "health"},
 	}

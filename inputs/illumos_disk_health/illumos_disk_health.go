@@ -2,12 +2,13 @@ package illumos_disk_health
 
 import (
 	"fmt"
+	"log"
+	"strings"
+
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	"github.com/siebenmann/go-kstat"
 	sth "github.com/snltd/solaris-telegraf-helpers"
-	"log"
-	"strings"
 )
 
 var sampleConfig = `
@@ -42,11 +43,12 @@ func parseNamedStats(s *IllumosDiskHealth, stats []*kstat.Named) (map[string]int
 	tags := make(map[string]string)
 
 	for _, stat := range stats {
-		if sth.WeWant(stat.Name, s.Fields) {
+		switch {
+		case sth.WeWant(stat.Name, s.Fields):
 			fields[camelCase(stat.Name)] = sth.NamedValue(stat).(float64)
-		} else if stat.Name == "Size" && sth.WeWant("Size", s.Tags) {
+		case stat.Name == "Size" && sth.WeWant("Size", s.Tags):
 			tags["size"] = fmt.Sprintf("%d", sth.NamedValue(stat))
-		} else if sth.WeWant(stat.Name, s.Tags) {
+		case sth.WeWant(stat.Name, s.Tags):
 			tags[camelCase(stat.Name)] = strings.TrimSpace(stat.StringVal)
 		}
 	}
@@ -56,7 +58,6 @@ func parseNamedStats(s *IllumosDiskHealth, stats []*kstat.Named) (map[string]int
 
 func (s *IllumosDiskHealth) Gather(acc telegraf.Accumulator) error {
 	token, err := kstat.Open()
-
 	if err != nil {
 		log.Fatal("cannot get kstat token")
 	}
@@ -78,12 +79,14 @@ func (s *IllumosDiskHealth) Gather(acc telegraf.Accumulator) error {
 	}
 
 	token.Close()
+
 	return nil
 }
 
 func camelCase(str string) string {
 	words := strings.Fields(strings.Title(strings.ToLower(str)))
 	words[0] = strings.ToLower(words[0])
+
 	return strings.Join(words, "")
 }
 

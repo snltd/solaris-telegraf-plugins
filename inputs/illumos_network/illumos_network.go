@@ -2,11 +2,12 @@ package illumos_network
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	"github.com/siebenmann/go-kstat"
 	sth "github.com/snltd/solaris-telegraf-helpers"
-	"log"
 )
 
 var sampleConfig = `
@@ -32,15 +33,13 @@ type IllumosNetwork struct {
 	Vnics  []string
 }
 
-var makeZoneVnicMap = func() sth.ZoneVnicMap {
-	return sth.NewZoneVnicMap()
-}
-
-var zoneName = ""
+var (
+	makeZoneVnicMap = sth.NewZoneVnicMap
+	zoneName        = ""
+)
 
 func (s *IllumosNetwork) Gather(acc telegraf.Accumulator) error {
 	token, err := kstat.Open()
-
 	if err != nil {
 		log.Fatal("cannot get kstat token")
 	}
@@ -79,6 +78,7 @@ func (s *IllumosNetwork) Gather(acc telegraf.Accumulator) error {
 	}
 
 	token.Close()
+
 	return nil
 }
 
@@ -104,8 +104,7 @@ func parseNamedStats(s *IllumosNetwork, stats []*kstat.Named) map[string]interfa
 	fields := make(map[string]interface{})
 
 	for _, stat := range stats {
-
-		if !sth.WeWant(stat.Name, s.Fields) || !sth.WeWant(stat.KStat.Name, s.Vnics) { //||
+		if !sth.WeWant(stat.Name, s.Fields) || !sth.WeWant(stat.KStat.Name, s.Vnics) {
 			continue
 		}
 
@@ -117,5 +116,6 @@ func parseNamedStats(s *IllumosNetwork, stats []*kstat.Named) map[string]interfa
 
 func init() {
 	zoneName = sth.ZoneName()
+
 	inputs.Add("illumos_network", func() telegraf.Input { return &IllumosNetwork{} })
 }

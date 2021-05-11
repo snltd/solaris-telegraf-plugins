@@ -2,14 +2,15 @@ package illumos_io
 
 import (
 	"fmt"
-	"github.com/influxdata/telegraf"
-	"github.com/influxdata/telegraf/plugins/inputs"
-	"github.com/siebenmann/go-kstat"
-	sth "github.com/snltd/solaris-telegraf-helpers"
 	"log"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/plugins/inputs"
+	"github.com/siebenmann/go-kstat"
+	sth "github.com/snltd/solaris-telegraf-helpers"
 )
 
 var sampleConfig = `

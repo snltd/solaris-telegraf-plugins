@@ -2,12 +2,13 @@ package illumos_nfs_client
 
 import (
 	"fmt"
+	"log"
+	"strings"
+
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	"github.com/siebenmann/go-kstat"
 	sth "github.com/snltd/solaris-telegraf-helpers"
-	"log"
-	"strings"
 )
 
 var sampleConfig = `
@@ -33,7 +34,6 @@ type IllumosNfsClient struct {
 
 func (s *IllumosNfsClient) Gather(acc telegraf.Accumulator) error {
 	token, err := kstat.Open()
-
 	if err != nil {
 		log.Fatal("cannot get kstat token")
 	}
@@ -52,7 +52,6 @@ func (s *IllumosNfsClient) Gather(acc telegraf.Accumulator) error {
 		}
 
 		stats, err := stat.AllNamed()
-
 		if err != nil {
 			log.Fatal("cannot get named NFS client kstats")
 		}
@@ -65,6 +64,7 @@ func (s *IllumosNfsClient) Gather(acc telegraf.Accumulator) error {
 	}
 
 	token.Close()
+
 	return nil
 }
 

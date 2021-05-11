@@ -2,14 +2,17 @@ package illumos_memory
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/influxdata/telegraf/testutil"
 	sth "github.com/snltd/solaris-telegraf-helpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestParseSwap(t *testing.T) {
+	t.Parallel()
+
 	s := &IllumosMemory{}
 
 	runSwapCmd = func() string {
@@ -29,6 +32,8 @@ func TestParseSwap(t *testing.T) {
 }
 
 func TestPlugin(t *testing.T) {
+	t.Parallel()
+
 	s := &IllumosMemory{
 		SwapOn:         true,
 		SwapFields:     []string{"allocated", "reserved", "used", "available"},
@@ -65,6 +70,7 @@ func TestPlugin(t *testing.T) {
 	// vminfo metrics
 	vminfoMetric := acc.GetTelegrafMetrics()[2]
 	assert.Equal(t, "memory.vminfo", vminfoMetric.Name())
+
 	vminfoMetricFields := []string{"swapAlloc", "swapAvail", "swapFree", "swapResv"}
 
 	for _, field := range vminfoMetricFields {
@@ -87,6 +93,8 @@ func TestPlugin(t *testing.T) {
 }
 
 func TestPluginAggregates(t *testing.T) {
+	t.Parallel()
+
 	s := &IllumosMemory{
 		CpuvmOn:        true,
 		CpuvmFields:    []string{"pgin", "anonpgin", "pgout", "anonpgout"},
@@ -113,6 +121,8 @@ func TestPluginAggregates(t *testing.T) {
 }
 
 func TestParseNamedStats(t *testing.T) {
+	t.Parallel()
+
 	s := &IllumosMemory{
 		CpuvmOn:        true,
 		CpuvmFields:    []string{"pgin", "anonpgin", "pgout", "anonpgout"},
@@ -135,6 +145,8 @@ func TestParseNamedStats(t *testing.T) {
 }
 
 func TestAggregateCpuVmKStats(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(
 		t,
 		map[string]interface{}{
@@ -148,6 +160,8 @@ func TestAggregateCpuVmKStats(t *testing.T) {
 }
 
 func TestIndividualCpuvmKStats(t *testing.T) {
+	t.Parallel()
+
 	assert.Equal(
 		t,
 		map[string]interface{}{
