@@ -40,7 +40,7 @@ func gatherProperties(acc telegraf.Accumulator, zonemap sth.ZoneMap) {
 			map[string]string{
 				"name":   zone,
 				"status": zoneData.Status,
-				"ipType": zoneData.IpType,
+				"ipType": zoneData.IPType,
 				"brand":  zoneData.Brand,
 			})
 	}
