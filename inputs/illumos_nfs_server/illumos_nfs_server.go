@@ -72,7 +72,7 @@ func parseNamedStats(s *IllumosNfsServer, stats []*kstat.Named) map[string]inter
 	fields := make(map[string]interface{})
 
 	for _, stat := range stats {
-		if !sth.WeWant(stat.Name, s.Fields) {
+		if sth.WeWant(stat.Name, s.Fields) {
 			fields[stat.Name] = sth.NamedValue(stat).(float64)
 		}
 	}
