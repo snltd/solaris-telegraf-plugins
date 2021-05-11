@@ -64,7 +64,7 @@ func TestFmadmImpacts(t *testing.T) {
 	t.Parallel()
 
 	runFmadmFaultyCmd = func() string {
-		ret, _ := ioutil.ReadFile("fixtures/fmadm_output.txt")
+		ret, _ := ioutil.ReadFile("testdata/fmadm_output.txt")
 
 		return string(ret)
 	}
@@ -96,13 +96,13 @@ func TestPlugin(t *testing.T) {
 	}
 
 	runFmadmFaultyCmd = func() string {
-		ret, _ := ioutil.ReadFile("fixtures/fmadm_output.txt")
+		ret, _ := ioutil.ReadFile("testdata/fmadm_output.txt")
 
 		return string(ret)
 	}
 
 	runFmstatCmd = func() string {
-		ret, _ := ioutil.ReadFile("fixtures/fmstat_output.txt")
+		ret, _ := ioutil.ReadFile("testdata/fmstat_output.txt")
 
 		return string(ret)
 	}
