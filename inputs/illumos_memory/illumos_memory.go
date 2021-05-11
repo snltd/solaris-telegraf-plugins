@@ -12,20 +12,24 @@ import (
 )
 
 var sampleConfig = `
-  ## General fields.
-  # fields = ["kernel", "arcsize", "freelist"]
-	## Fields you want from from the 'unix:0:vminfo' kstats. These should be turned into a rate by
-	## your graphing software
-	# vm_info_fields = ["freemem", "swap_resv", "swap_alloc", "swap_avail", "swap_free"]
-	## Fields from the output of 'swap -l'
+	## Whether to produce metrics from the output of 'swap -s'
+	# swap_on = true
+	## And which fields to use. Specifying none implies all.
 	# swap_fields = ["allocated", "reserved", "used", "available"]
-	## which swap-related fields you want from the 'cpu::vm' kstat. These should be turned into
-	## rates by your graphing software
-	# cpu_vm_fields = ["pgin", "anonpgin", "pgpgin", "pgout", "anonpgout", "pgpgout"]
-	## If per_cpu_vm is true, you get all of the cpu_vm_fields for every VCPU. If it is false, they
-	## are aggregated
-	# per_cpu_vm = false
+	## Whether to report "extra" fields, and which ones (kernel, arcsize, freelist)
+	# extra_on = true
+	# extra_fields = ["kernel", "arcsize", "freelist"]
+  ## Whether to collect vminfo kstats, and which ones.
+	# vminfo_on = true
+	# vminfo_fields = ["freemem", swap_alloc", "swap_avail", "swap_free", "swap_resv"]
+	## Whether to collect cpu::vm kstats
+	# cpuvm_on =true
+	# cpuvm_fields = ["pgin", "anonpgin", "pgpgin", "pgout", "anonpgout", "pgpgout"]
+	## Whether to aggregate cpuvm fields. (False sents a set of metrics for each vcpu)
+	# cpuvm_aggregate = false
 `
+
+var pageSize float64
 
 func (s *IllumosMemory) Description() string {
 	return "Reports on Illumos virtual and physical memory usage."
@@ -36,54 +40,77 @@ func (s *IllumosMemory) SampleConfig() string {
 }
 
 type IllumosMemory struct {
-	Fields       []string
-	VmInfoFields []string
-	SwapFields   []string
-	CpuVmFields  []string
-	PerCpuVm     bool
-}
-
-var pageSize int
-
-var runSwapCmd = func() string {
-	return sth.RunCmd("/usr/sbin/swap -s")
+	SwapOn         bool
+	SwapFields     []string
+	ExtraOn        bool
+	ExtraFields    []string
+	VminfoOn       bool
+	VminfoFields   []string
+	CpuvmOn        bool
+	CpuvmFields    []string
+	CpuvmAggregate bool
 }
 
 func (s *IllumosMemory) Gather(acc telegraf.Accumulator) error {
 	tags := make(map[string]string)
+
+	if s.SwapOn {
+		acc.AddFields("memory.swap", parseSwap(s), tags)
+	}
+
 	token, err := kstat.Open()
 
 	if err != nil {
 		return err
 	}
 
-	acc.AddFields("memory", miscKstats(s, token), tags)
-	acc.AddFields("memory", swapAndPageKstats(s, token), tags)
-	acc.AddFields("memory.vminfo", vminfoKstats(s, token), tags)
+	if s.ExtraOn {
+		acc.AddFields("memory", extraKStats(s, token), tags)
+	}
 
-	if len(s.SwapFields) > 0 {
-		acc.AddFields("memory.swap", parseSwap(s), tags)
+	if s.VminfoOn {
+		acc.AddFields("memory.vminfo", vminfoKStats(s, token), tags)
+	}
+
+	if s.CpuvmOn {
+		acc.AddFields("memory.cpuVm", cpuvmKStats(s, token), tags)
 	}
 
 	token.Close()
 	return nil
 }
 
-func miscKstats(s *IllumosMemory, token *kstat.Token) map[string]interface{} {
+func extraKStats(s *IllumosMemory, token *kstat.Token) map[string]interface{} {
 	fields := make(map[string]interface{})
 
-	if sth.WeWant("kernel", s.Fields) {
-		kpg := sth.KstatSingle(token, "unix:0:system_pages:pp_kernel")
-		fields["kernel"] = float64(kpg.(uint64)) * float64(pageSize)
+	if sth.WeWant("kernel", s.ExtraFields) {
+		stat, err := token.GetNamed("unix", 0, "system_pages", "pp_kernel")
+
+		if err == nil {
+			fields["kernel"] = sth.NamedValue(stat).(float64) * pageSize
+		} else {
+			log.Fatal(err)
+		}
 	}
 
-	if sth.WeWant("arcsize", s.Fields) {
-		fields["arcsize"] = sth.KstatSingle(token, "zfs:0:arcstats:size")
+	if sth.WeWant("freelist", s.ExtraFields) {
+		stat, err := token.GetNamed("unix", 0, "system_pages", "pagesfree")
+
+		if err == nil {
+			fields["freelist"] = sth.NamedValue(stat).(float64) * pageSize
+		} else {
+			log.Fatal(err)
+		}
 	}
 
-	if sth.WeWant("freelist", s.Fields) {
-		pfree := sth.KstatSingle(token, "unix:0:system_pages:pagesfree")
-		fields["freelist"] = float64(pfree.(uint64)) * float64(pageSize)
+	if sth.WeWant("arcsize", s.ExtraFields) {
+		stat, err := token.GetNamed("zfs", 0, "arcstats", "size")
+
+		if err == nil {
+			fields["arcsize"] = sth.NamedValue(stat).(float64) * pageSize
+		} else {
+			log.Fatal(err)
+		}
 	}
 
 	return fields
@@ -91,78 +118,118 @@ func miscKstats(s *IllumosMemory, token *kstat.Token) map[string]interface{} {
 
 // The raw kstats in here are gauges, measured in pages. So we need to convert them to bytes here,
 // and you need to apply some kind of rate() function in your graphing software.
-func vminfoKstats(s *IllumosMemory, token *kstat.Token) map[string]interface{} {
+func vminfoKStats(s *IllumosMemory, token *kstat.Token) map[string]interface{} {
 	fields := make(map[string]interface{})
 
-	if len(s.VmInfoFields) > 0 {
-		_, vi, err := token.Vminfo()
+	_, vi, err := token.Vminfo()
 
-		if err != nil {
-			log.Fatal("cannot get vminfo kstats")
-		}
+	if err != nil {
+		log.Fatal("cannot get vminfo kstats")
+	}
 
-		if sth.WeWant("freemem", s.VmInfoFields) {
-			fields["freemem"] = float64(vi.Freemem) * float64(pageSize)
-		}
+	if sth.WeWant("freemem", s.VminfoFields) {
+		fields["freemem"] = float64(vi.Freemem) * pageSize
+	}
 
-		if sth.WeWant("swap_alloc", s.VmInfoFields) {
-			fields["swap_alloc"] = float64(vi.Alloc) * float64(pageSize)
-		}
+	if sth.WeWant("swap_alloc", s.VminfoFields) {
+		fields["swapAlloc"] = float64(vi.Alloc) * pageSize
+	}
 
-		if sth.WeWant("swap_avail", s.VmInfoFields) {
-			fields["swap_avail"] = float64(vi.Avail) * float64(pageSize)
-		}
+	if sth.WeWant("swap_avail", s.VminfoFields) {
+		fields["swapAvail"] = float64(vi.Avail) * pageSize
+	}
 
-		if sth.WeWant("swap_free", s.VmInfoFields) {
-			fields["swap_free"] = float64(vi.Free) * float64(pageSize)
-		}
+	if sth.WeWant("swap_free", s.VminfoFields) {
+		fields["swapFree"] = float64(vi.Free) * pageSize
+	}
 
-		if sth.WeWant("swap_resv", s.VmInfoFields) {
-			fields["swap_resv"] = float64(vi.Resv) * float64(pageSize)
+	if sth.WeWant("swap_resv", s.VminfoFields) {
+		fields["swapResv"] = float64(vi.Resv) * pageSize
+	}
+
+	return fields
+}
+
+// The only named stats we need to parse in this collector are the ones from cpuvmKStats()
+func parseNamedStats(s *IllumosMemory, stats []*kstat.Named) map[string]interface{} {
+	fields := make(map[string]interface{})
+
+	for _, stat := range stats {
+		if sth.WeWant(stat.Name, s.CpuvmFields) {
+			fields[stat.Name] = sth.NamedValue(stat).(float64)
 		}
 	}
 
 	return fields
 }
 
-func swapAndPageKstats(s *IllumosMemory, token *kstat.Token) map[string]interface{} {
-	fields := make(map[string]interface{})
-	sums := make(map[string]uint64)
-	cpu_stats := sth.KstatModule(token, "cpu")
+type cpuvmStatHolder map[int]map[string]interface{}
 
-	for _, name := range cpu_stats {
-		if name.Name != "vm" {
+func perCpuvmKStats(s *IllumosMemory, token *kstat.Token) cpuvmStatHolder {
+	perCpuStats := make(cpuvmStatHolder)
+	modStats := sth.KStatsInModule(token, "cpu")
+
+	for _, statGroup := range modStats {
+		if statGroup.Name != "vm" {
 			continue
 		}
 
-		stats, _ := name.AllNamed()
+		stats, err := statGroup.AllNamed()
 
-		for _, stat := range stats {
-			if !sth.WeWant(stat.Name, s.CpuVmFields) {
-				continue
-			}
-
-			if s.PerCpuVm {
-				key := fmt.Sprintf("cpu.vm.%d.%s", stat.KStat.Instance, stat.Name)
-				fields[key] = stat.UintVal
-			} else {
-				sums[stat.Name] = sums[stat.Name] + stat.UintVal
-			}
-
+		if err != nil {
+			log.Fatal("cannot get named cpu.vm kstats")
 		}
 
-		if !s.PerCpuVm {
-			for k, v := range sums {
-				if sth.WeWant(k, s.CpuVmFields) {
-					fkey := fmt.Sprintf("vm.%s", k)
-					fields[fkey] = v
-				}
-			}
-		}
+		perCpuStats[statGroup.Instance] = parseNamedStats(s, stats)
+	}
 
+	return perCpuStats
+}
+
+func individualCpuvmKStats(stats cpuvmStatHolder) map[string]interface{} {
+	fields := make(map[string]interface{})
+
+	for cpuID, vmStats := range stats {
+		for name, value := range vmStats {
+			fieldName := fmt.Sprintf("vm.cpu%d.%s", cpuID, name)
+			fields[fieldName] = value
+		}
 	}
 
 	return fields
+}
+
+func aggregateCpuvmKStats(stats cpuvmStatHolder) map[string]interface{} {
+	counters := make(map[string]float64)
+
+	for _, vmStats := range stats {
+		for name, value := range vmStats {
+			fieldName := fmt.Sprintf("vm.aggregate.%s", name)
+			counters[fieldName] += value.(float64)
+		}
+	}
+
+	fields := make(map[string]interface{})
+
+	for key, val := range counters {
+		fields[key] = val
+	}
+
+	return fields
+}
+
+func cpuvmKStats(s *IllumosMemory, token *kstat.Token) map[string]interface{} {
+	allStats := perCpuvmKStats(s, token)
+
+	if s.CpuvmAggregate {
+		return aggregateCpuvmKStats(allStats)
+	}
+
+	return individualCpuvmKStats(allStats)
+}
+
+var runSwapCmd = func() string {
+	return sth.RunCmd("/usr/sbin/swap -s")
 }
 
 func parseSwap(s *IllumosMemory) map[string]interface{} {
@@ -172,29 +239,41 @@ func parseSwap(s *IllumosMemory) map[string]interface{} {
 	m := re.FindAllStringSubmatch(swapline, -1)[0]
 
 	if sth.WeWant("allocated", s.SwapFields) {
-		bytes, _ := sth.Bytify(m[1])
-		fields["allocated"] = bytes
+		bytes, err := sth.Bytify(m[1])
+
+		if err == nil {
+			fields["allocated"] = bytes
+		}
 	}
 
 	if sth.WeWant("reserved", s.SwapFields) {
-		bytes, _ := sth.Bytify(m[2])
-		fields["reserved"] = bytes
+		bytes, err := sth.Bytify(m[2])
+
+		if err == nil {
+			fields["reserved"] = bytes
+		}
 	}
 
 	if sth.WeWant("used", s.SwapFields) {
-		bytes, _ := sth.Bytify(m[3])
-		fields["used"] = bytes
+		bytes, err := sth.Bytify(m[3])
+
+		if err == nil {
+			fields["used"] = bytes
+		}
 	}
 
 	if sth.WeWant("available", s.SwapFields) {
-		bytes, _ := sth.Bytify(m[4])
-		fields["available"] = bytes
+		bytes, err := sth.Bytify(m[4])
+
+		if err == nil {
+			fields["available"] = bytes
+		}
 	}
 
 	return fields
 }
 
 func init() {
-	pageSize = os.Getpagesize()
+	pageSize = float64(os.Getpagesize())
 	inputs.Add("illumos_memory", func() telegraf.Input { return &IllumosMemory{} })
 }
