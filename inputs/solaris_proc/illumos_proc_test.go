@@ -1,5 +1,6 @@
 package illumos_proc
 
+/*
 import (
 	//"fmt"
 	"github.com/influxdata/telegraf"
@@ -33,7 +34,7 @@ var testMetrics = []telegraf.Metric{
 		time.Now(),
 	),
 }
-
+*/
 /*
 func TestContractMap(t *testing.T) {
 	contractMap := contractMap(sampleSvcsOutput)
