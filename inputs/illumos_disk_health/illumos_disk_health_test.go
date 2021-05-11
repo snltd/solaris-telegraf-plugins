@@ -1,20 +1,17 @@
 package illumos_disk_health
 
 import (
-	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/testutil"
 	sth "github.com/snltd/solaris-telegraf-helpers"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
-	"time"
 )
 
 func TestCamelCase(t *testing.T) {
-	assert.Equal(t, "softErrors", camelCase("Soft Errors"))
-	assert.Equal(t, "softErrors", camelCase("soft Errors"))
-	assert.Equal(t, "word", camelCase("word"))
-	assert.Equal(t, "oneTwoThree", camelCase("One tWo three"))
+	require.Equal(t, "softErrors", camelCase("Soft Errors"))
+	require.Equal(t, "softErrors", camelCase("soft Errors"))
+	require.Equal(t, "word", camelCase("word"))
+	require.Equal(t, "oneTwoThree", camelCase("One tWo three"))
 }
 
 func TestParseNamedStats(t *testing.T) {
@@ -27,7 +24,7 @@ func TestParseNamedStats(t *testing.T) {
 	testData := sth.FromFixture("sderr:6:sd6,err.kstat")
 	fields, tags := parseNamedStats(s, testData)
 
-	assert.Equal(
+	require.Equal(
 		t,
 		fields,
 		map[string]interface{}{
@@ -38,7 +35,7 @@ func TestParseNamedStats(t *testing.T) {
 		},
 	)
 
-	assert.Equal(
+	require.Equal(
 		t,
 		tags,
 		map[string]string{
@@ -52,7 +49,7 @@ func TestParseNamedStats(t *testing.T) {
 
 func TestPlugin(t *testing.T) {
 	s := &IllumosDiskHealth{
-		Devices: []string{"sd6"},
+		Devices: []string{"sd0"},
 		Fields:  []string{"Hard Errors", "Transport Errors", "Illegal Request"},
 		Tags:    []string{"Vendor", "Serial No", "Product"},
 	}
@@ -60,28 +57,19 @@ func TestPlugin(t *testing.T) {
 	acc := testutil.Accumulator{}
 	require.NoError(t, s.Gather(&acc))
 
-	testutil.RequireMetricsEqual(
-		t,
-		testMetrics,
-		acc.GetTelegrafMetrics(),
-		testutil.SortMetrics(),
-		testutil.IgnoreTime(),
-	)
-}
+	testMetric := acc.GetTelegrafMetrics()[0]
+	require.Equal(t, "diskHealth", testMetric.Name())
 
-var testMetrics = []telegraf.Metric{
-	testutil.MustMetric(
-		"diskHealth",
-		map[string]string{
-			"product":  "My Passport 2627",
-			"serialNo": "WXP1E7916Z6K",
-			"vendor":   "WD",
-		},
-		map[string]interface{}{
-			"hardErrors":      float64(0),
-			"transportErrors": float64(0),
-			"illegalRequest":  float64(1203),
-		},
-		time.Now(),
-	),
+	requiredFields := []string{"hardErrors", "transportErrors", "illegalRequest"}
+
+	for _, field := range requiredFields {
+		_, present := testMetric.GetField(field)
+		require.True(t, present)
+	}
+
+	requiredTags := []string{"vendor", "serialNo", "product"}
+
+	for _, tag := range requiredTags {
+		require.True(t, testMetric.HasTag(tag))
+	}
 }
