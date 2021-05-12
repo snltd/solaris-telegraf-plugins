@@ -22,139 +22,156 @@ var sampleConfig = `
 	## potentially useful tags
 	# cpu_info_stats = true
 	## Produce metrics for sys and user CPU consumption in every zone
-	# cpu_zone_stats = true
+	# zone_cpu_stats = true
 	## Which cpu:sys kstat metrics you wish to emit. They probably won't all work, because they
 	## some will have a value type which is not an unsigned int
-	# fields = ["cpu_nsec_dtrace", "cpu_nsec_intr", "cpu_nsec_kernel", "cpu_nsec_user"]
+	# sys_fields = ["cpu_nsec_dtrace", "cpu_nsec_intr", "cpu_nsec_kernel", "cpu_nsec_user"]
 	## "cpu_ticks_idle", cpu_ticks_kernel", cpu_ticks_user", cpu_ticks_wait", }
 `
 
-func (s *IllumosCpu) Description() string {
+func (s *IllumosCPU) Description() string {
 	return "Reports on Illumos CPU usage"
 }
 
-func (s *IllumosCpu) SampleConfig() string {
+func (s *IllumosCPU) SampleConfig() string {
 	return sampleConfig
 }
 
-type IllumosCpu struct {
-	ZoneCpuStats bool
-	CpuInfoStats bool
-	Fields       []string
+type IllumosCPU struct {
+	CPUInfoStats bool
+	ZoneCPUStats bool
+	SysFields    []string
 }
 
-var runPsrinfoCmd = func() string {
-	return sth.RunCmd("/usr/sbin/psrinfo")
-}
+func parseCPUinfoKStats(stats []*kstat.Named) (map[string]interface{}, map[string]string) {
+	fields := make(map[string]interface{})
+	tags := make(map[string]string)
 
-// cpuinfoTags extracts useful tags from a cpu_info kstat
-func cpuinfoTags(stat *kstat.KStat) map[string]string {
-	coreID, _ := stat.GetNamed("core_id")
-	chipID, _ := stat.GetNamed("chip_id")
-	state, _ := stat.GetNamed("state")
-	clockMhz, _ := stat.GetNamed("clock_MHz")
-
-	return map[string]string{
-		"coreID":   fmt.Sprintf("%d", coreID.IntVal),
-		"chipID":   fmt.Sprintf("%d", chipID.IntVal),
-		"state":    state.StringVal,
-		"clockMhz": fmt.Sprintf("%d", clockMhz.IntVal),
+	for _, stat := range stats {
+		switch stat.Name {
+		case "current_clock_Hz":
+			fields["speed"] = float64(stat.UintVal)
+		case "clock_MHz":
+			tags["clockMHz"] = fmt.Sprintf("%d", stat.IntVal)
+		case "state":
+			tags["state"] = stat.StringVal
+		case "chip_id":
+			tags["chipID"] = fmt.Sprintf("%d", stat.IntVal)
+		case "core_id":
+			tags["coreID"] = fmt.Sprintf("%d", stat.IntVal)
+		}
 	}
+
+	return fields, tags
 }
 
-func gatherCpuinfoStats(acc telegraf.Accumulator, token *kstat.Token) {
+func gatherCPUinfoStats(acc telegraf.Accumulator, token *kstat.Token) {
 	stats := sth.KStatsInModule(token, "cpu_info")
 
 	for _, stat := range stats {
-		currentHz, err := stat.GetNamed("current_clock_Hz")
-
-		if err == nil {
-			acc.AddFields(
-				"cpu",
-				map[string]interface{}{"speed": currentHz.UintVal},
-				cpuinfoTags(stat),
-			)
+		namedStats, err := stat.AllNamed()
+		if err != nil {
+			log.Fatal("cannot get kstat token")
 		}
+
+		fields, tags := parseCPUinfoKStats(namedStats)
+		acc.AddFields("cpu.info", fields, tags)
 	}
 }
 
-func gatherCpuStats(s *IllumosCpu, acc telegraf.Accumulator, token *kstat.Token) {
+func parseZoneCPUKStats(stats []*kstat.Named) (map[string]interface{}, map[string]string) {
+	fields := make(map[string]interface{})
+	tags := make(map[string]string)
+
+	for _, stat := range stats {
+		switch stat.Name {
+		case "nsec_sys":
+			fields["sys"] = float64(stat.UintVal)
+		case "nsec_user":
+			fields["user"] = float64(stat.UintVal)
+		case "zonename":
+			tags["name"] = stat.StringVal
+		}
+	}
+
+	return fields, tags
+}
+
+// metrics reporting on CPU consumption for each zone. sys and user, each as a gauge, tagged with
+// the zone name.
+func gatherZoneCPUStats(acc telegraf.Accumulator, token *kstat.Token) {
+	zoneStats := sth.KStatsInModule(token, "zones")
+
+	for _, zone := range zoneStats {
+		namedStats, err := zone.AllNamed()
+		if err != nil {
+			log.Fatal("cannot get zone CPU named stats")
+		}
+
+		fields, tags := parseZoneCPUKStats(namedStats)
+
+		acc.AddFields("cpu.zone", fields, tags)
+	}
+}
+
+func parseSysCPUKStats(s *IllumosCPU, stats []*kstat.Named) map[string]interface{} {
+	fields := make(map[string]interface{})
+
+	for _, stat := range stats {
+		if sth.WeWant(stat.Name, s.SysFields) {
+			fields[fieldToMetricPath(stat.Name)] = float64(stat.UintVal)
+		}
+	}
+
+	return fields
+}
+
+func gatherSysCPUStats(s *IllumosCPU, acc telegraf.Accumulator, token *kstat.Token) {
 	cpuStats := sth.KStatsInModule(token, "cpu")
 
-	for _, statGroup := range cpuStats {
-		if statGroup.Name != "sys" {
-			continue
-		}
-
-		fields := make(map[string]interface{})
-
-		for _, field := range s.Fields {
-			stat, err := statGroup.GetNamed(field)
-
+	for _, cpu := range cpuStats {
+		if cpu.Name == "sys" {
+			namedStats, err := cpu.AllNamed()
 			if err != nil {
-				log.Printf(fmt.Sprintf("cannot get %s:%s", statGroup, field))
+				log.Fatal("cannot get CPU named stats")
 			}
 
-			fields[fieldToMetricPath(field)] = stat.UintVal
+			acc.AddFields(
+				"cpu",
+				parseSysCPUKStats(s, namedStats),
+				map[string]string{"coreID": fmt.Sprintf("%d", cpu.Instance)},
+			)
 		}
-
-		tags := map[string]string{
-			"coreID": fmt.Sprintf("%d", statGroup.Instance),
-		}
-
-		acc.AddFields("cpu", fields, tags)
 	}
 }
 
 func fieldToMetricPath(field string) string {
 	field = strings.Replace(field, "cpu_", "", 1)
 	field = strings.Replace(field, "_", ".", 1)
+
 	return field
 }
 
-// metrics reporting on CPU consumption for each zone. sys and user, each as a gauge, tagged with
-// the zone name
-func gatherZoneCpuStats(acc telegraf.Accumulator, token *kstat.Token) {
-	zoneStats := sth.KstatModule(token, "zones")
-
-	for _, zone := range zoneStats {
-		nsecSys, serr := zone.GetNamed("nsec_sys")
-		nsecUser, uerr := zone.GetNamed("nsec_user")
-
-		fields := map[string]interface{}{
-			"sys":  nsecSys.UintVal,
-			"user": nsecUser.UintVal,
-		}
-
-		tags := map[string]string{"zone": zone.Name}
-
-		if serr == nil && uerr == nil {
-			acc.AddFields("cpu.zone", fields, tags)
-		}
-	}
-}
-
-func (s *IllumosCpu) Gather(acc telegraf.Accumulator) error {
+func (s *IllumosCPU) Gather(acc telegraf.Accumulator) error {
 	token, err := kstat.Open()
-
 	if err != nil {
 		log.Fatal("cannot get kstat token")
 	}
 
-	if s.CpuInfoStats {
-		gatherCpuinfoStats(acc, token)
+	if s.CPUInfoStats {
+		gatherCPUinfoStats(acc, token)
 	}
 
-	gatherCpuStats(s, acc, token)
-
-	if s.ZoneCpuStats {
-		gatherZoneCpuStats(acc, token)
+	if s.ZoneCPUStats {
+		gatherZoneCPUStats(acc, token)
 	}
 
+	gatherSysCPUStats(s, acc, token)
 	token.Close()
+
 	return nil
 }
 
 func init() {
-	inputs.Add("illumos_cpu", func() telegraf.Input { return &IllumosCpu{} })
+	inputs.Add("illumos_cpu", func() telegraf.Input { return &IllumosCPU{} })
 }
