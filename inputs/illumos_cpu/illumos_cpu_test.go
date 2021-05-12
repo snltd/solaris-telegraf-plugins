@@ -125,5 +125,5 @@ func testSysMetric(t *testing.T, metric telegraf.Metric) {
 	t.Helper()
 	require.True(t, metric.HasField("nsec.kernel"))
 	require.True(t, metric.HasField("nsec.user"))
-	require.True(t, metric.HasTag("cpuID"))
+	require.True(t, metric.HasTag("coreID"))
 }
