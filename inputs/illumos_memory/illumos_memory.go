@@ -22,7 +22,7 @@ var sampleConfig = `
 	# extra_fields = ["kernel", "arcsize", "freelist"]
   ## Whether to collect vminfo kstats, and which ones.
 	# vminfo_on = true
-	# vminfo_fields = ["freemem", swap_alloc", "swap_avail", "swap_free", "swap_resv"]
+	# vminfo_fields = ["freemem", "swap_alloc", "swap_avail", "swap_free", "swap_resv"]
 	## Whether to collect cpu::vm kstats
 	# cpuvm_on =true
 	# cpuvm_fields = ["pgin", "anonpgin", "pgpgin", "pgout", "anonpgout", "pgpgout"]
